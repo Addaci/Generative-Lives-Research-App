@@ -1,0 +1,5 @@
+{
+  "name": "Generative Lives Research Assistant",
+  "description": "A Socratic research tool powered by Gemini to assist in analyzing the impact of GenAI on professional training and hierarchies.",
+  "requestFramePermissions": []
+}
