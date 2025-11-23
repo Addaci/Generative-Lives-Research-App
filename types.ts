@@ -15,14 +15,7 @@ export enum ResearchTier {
 export type ModelId = 'gemini-2.5-flash' | 'gemini-3-pro-preview';
 export type SynthesisMode = 'query' | 'user_note' | 'assistant_note';
 export type ExportFormat = 'markdown' | 'txt' | 'json';
-export type InferenceLevel = 'strict' | 'cautious' | 'bold';
-
-export interface GuidanceConfig {
-  inferenceLevel: InferenceLevel;
-  customInstructions: string;
-  formatPreference: string;
-  depthPreference: string;
-}
+export type InferenceLevel = 'strict' | 'cautious' | 'moderate' | 'bold';
 
 export interface GroundingSource {
   title: string;
@@ -37,7 +30,7 @@ export interface Message {
   isThinking?: boolean;
   sources?: GroundingSource[];
   suggestedActions?: string[];
-  action?: string;
+  action?: 'calibrate';
 }
 
 export interface ResearchItem {
@@ -45,11 +38,11 @@ export interface ResearchItem {
   refId: number;
   title?: string;
   content: string;
-  sourceUrl?: string; // Legacy
-  sourceTitle?: string; // Legacy
-  sources?: GroundingSource[]; // V2.8: Full structured sources
-  actor: 'user' | 'model'; // V2.8: Explicit provenance
-  respondsToRefId?: number; // V2.8: Threading logic
+  sourceUrl?: string;
+  sourceTitle?: string;
+  sources?: GroundingSource[];
+  actor: 'user' | 'model';
+  respondsToRefId?: number;
   tier: ResearchTier;
   timestamp: Date;
   notes?: string;
@@ -61,13 +54,11 @@ export interface UserIdentity {
   lastName: string;
 }
 
-export interface AppState {
-  messages: Message[];
-  researchItems: ResearchItem[];
-  isSearching: boolean;
-  currentTier: ResearchTier;
-  modelId: ModelId;
-  userIdentity: UserIdentity | null;
+export interface GuidanceConfig {
+  inferenceLevel: InferenceLevel;
+  customInstructions: string;
+  formatPreference: string;
+  depthPreference: string;
 }
 
 export interface SessionData {

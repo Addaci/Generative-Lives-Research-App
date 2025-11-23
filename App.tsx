@@ -7,7 +7,6 @@ import { INITIAL_SUGGESTIONS } from './constants';
 import { MessageBubble } from './components/MessageBubble';
 import { ResearchCard } from './components/ResearchCard';
 
-// Helper for local storage persistence
 const loadFromStorage = <T,>(key: string, defaultVal: T): T => {
   try {
     const saved = localStorage.getItem(key);
@@ -26,15 +25,13 @@ const loadFromStorage = <T,>(key: string, defaultVal: T): T => {
 };
 
 const App: React.FC = () => {
-  // --- State ---
-  
-  // V3.2 Keys - Fresh Start for Assistant Footnote Logic
+  // V4.4 Keys - Fresh Session for Dual Link Logic
   const [userIdentity, setUserIdentity] = useState<UserIdentity | null>(() => 
-    loadFromStorage('gl_user_identity_v3_2', null)
+    loadFromStorage('gl_user_identity_v4_4', null)
   );
 
   const [guidance, setGuidance] = useState<GuidanceConfig>(() => 
-    loadFromStorage('gl_guidance_v3_2', {
+    loadFromStorage('gl_guidance_v4_4', {
         inferenceLevel: 'cautious',
         customInstructions: 'Report data, then suggest obvious correlations. Avoid speculation.',
         formatPreference: 'Narrative with Footnotes',
@@ -43,15 +40,15 @@ const App: React.FC = () => {
   );
 
   const [sessionStartTime, setSessionStartTime] = useState<Date>(() => 
-    loadFromStorage('gl_session_start_v3_2', new Date())
+    loadFromStorage('gl_session_start_v4_4', new Date())
   );
 
   const [messages, setMessages] = useState<Message[]>(() => 
-    loadFromStorage('gl_chat_history_v3_2', [])
+    loadFromStorage('gl_chat_history_v4_4', [])
   );
 
   const [researchItems, setResearchItems] = useState<ResearchItem[]>(() => {
-    const items = loadFromStorage<ResearchItem[]>('gl_research_items_v3_2', []);
+    const items = loadFromStorage<ResearchItem[]>('gl_research_items_v4_4', []);
     return items.map((item, index) => {
         if (item.refId === undefined) return { ...item, refId: index + 1, actor: 'model' }; 
         if (!item.actor) return { ...item, actor: item.type === 'question' ? 'user' : 'model' };
@@ -60,17 +57,17 @@ const App: React.FC = () => {
   });
   
   const [nextRefId, setNextRefId] = useState<number>(() => {
-      const saved = loadFromStorage('gl_next_ref_id_v3_2', 1);
-      const items = loadFromStorage<ResearchItem[]>('gl_research_items_v3_2', []);
+      const saved = loadFromStorage('gl_next_ref_id_v4_4', 1);
+      const items = loadFromStorage<ResearchItem[]>('gl_research_items_v4_4', []);
       const maxId = items.reduce((max, item) => (item.refId || 0) > max ? item.refId : max, 0);
       return Math.max(saved, maxId + 1);
   });
 
+  // V4.4 Default Model: Gemini 3.0 Pro for Compliance
   const [selectedModel, setSelectedModel] = useState<ModelId>(() => 
-    loadFromStorage('gl_model_pref_v3_2', 'gemini-2.5-flash')
+    loadFromStorage('gl_model_pref_v4_4', 'gemini-3-pro-preview')
   );
 
-  // UI State
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [useSearch, setUseSearch] = useState(true);
@@ -84,36 +81,43 @@ const App: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const [isResizing, setIsResizing] = useState(false);
 
-  // Note Modal State
   const [editingItem, setEditingItem] = useState<ResearchItem | null>(null);
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteTier, setNoteTier] = useState<ResearchTier>(ResearchTier.GENERAL);
 
-  // Synthesis State
   const [synthesisMode, setSynthesisMode] = useState<SynthesisMode>('assistant_note');
   const [synthesisTiers, setSynthesisTiers] = useState<ResearchTier[]>(Object.values(ResearchTier));
 
-  // Onboarding
   const [onboardingName, setOnboardingName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- Effects ---
-  
+  // FORCE WIPE HOOK FOR V4.4
+  useEffect(() => {
+      const hasV44 = localStorage.getItem('gl_user_identity_v4_4');
+      const hasOld = localStorage.getItem('gl_user_identity_v4_3') || localStorage.getItem('gl_user_identity_v4_2');
+      
+      if (!hasV44 && hasOld) {
+          console.log("Migrating to V4.4 - Cleaning up old sessions");
+          localStorage.clear();
+          window.location.reload();
+      }
+  }, []);
+
   useEffect(() => {
     if (messages.length > 0) scrollToBottom();
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem('gl_user_identity_v3_2', JSON.stringify(userIdentity));
-    localStorage.setItem('gl_chat_history_v3_2', JSON.stringify(messages));
-    localStorage.setItem('gl_research_items_v3_2', JSON.stringify(researchItems));
-    localStorage.setItem('gl_model_pref_v3_2', JSON.stringify(selectedModel));
-    localStorage.setItem('gl_session_start_v3_2', JSON.stringify(sessionStartTime));
-    localStorage.setItem('gl_next_ref_id_v3_2', JSON.stringify(nextRefId));
-    localStorage.setItem('gl_guidance_v3_2', JSON.stringify(guidance));
+    localStorage.setItem('gl_user_identity_v4_4', JSON.stringify(userIdentity));
+    localStorage.setItem('gl_chat_history_v4_4', JSON.stringify(messages));
+    localStorage.setItem('gl_research_items_v4_4', JSON.stringify(researchItems));
+    localStorage.setItem('gl_model_pref_v4_4', JSON.stringify(selectedModel));
+    localStorage.setItem('gl_session_start_v4_4', JSON.stringify(sessionStartTime));
+    localStorage.setItem('gl_next_ref_id_v4_4', JSON.stringify(nextRefId));
+    localStorage.setItem('gl_guidance_v4_4', JSON.stringify(guidance));
   }, [messages, researchItems, selectedModel, userIdentity, sessionStartTime, nextRefId, guidance]);
 
   useEffect(() => {
@@ -140,9 +144,7 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
       const newWidth = document.body.clientWidth - e.clientX;
-      if (newWidth > 300 && newWidth < 800) {
-        setSidebarWidth(newWidth);
-      }
+      if (newWidth > 300 && newWidth < 800) setSidebarWidth(newWidth);
     };
     const handleMouseUp = () => { setIsResizing(false); };
     if (isResizing) {
@@ -162,8 +164,6 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // --- Handlers ---
-
   const handleOnboardingSubmit = () => {
       if (!onboardingName.trim()) return;
       const names = onboardingName.trim().split(' ');
@@ -181,27 +181,14 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
   const handleSendMessage = async (text: string = inputValue) => {
     if (!text.trim() || !userIdentity) return;
 
-    const newUserMsg: Message = {
-      id: uuidv4(),
-      role: Role.USER,
-      text: text,
-      timestamp: new Date()
-    };
-
+    const newUserMsg: Message = { id: uuidv4(), role: Role.USER, text: text, timestamp: new Date() };
     setMessages(prev => [...prev, newUserMsg]);
     setInputValue('');
     setIsLoading(true);
 
     try {
       const fullName = `${userIdentity.firstName} ${userIdentity.lastName}`;
-      // Note: geminiService needs to be updated to accept guidance in a real implementation, 
-      // but for this V3.2 scope we focus on the Footnote logic which is in constants.ts system instruction.
-      // We assume sendMessageToGemini calls getSystemInstruction which now reads guidance (if passed) or defaults.
-      // Since we didn't update service signature in this XML block to pass guidance object, it will use defaults.
-      // Ideally we should update service too, but adhering to "minimal updates".
-      // However, the prompt logic for footnotes is in constants.ts which IS updated.
-      
-      const response = await sendMessageToGemini(messages.concat(newUserMsg), text, useSearch, selectedModel, fullName);
+      const response = await sendMessageToGemini(messages.concat(newUserMsg), text, useSearch, selectedModel, fullName, guidance); 
       
       const newModelMsg: Message = {
         id: uuidv4(),
@@ -210,32 +197,19 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
         sources: response.sources,
         timestamp: new Date()
       };
-
       setMessages(prev => [...prev, newModelMsg]);
     } catch (error) {
       console.error(error);
-      setMessages(prev => [...prev, {
-        id: uuidv4(),
-        role: Role.MODEL,
-        text: "I encountered an error connecting to the research engine. Please try again.",
-        timestamp: new Date()
-      }]);
+      setMessages(prev => [...prev, { id: uuidv4(), role: Role.MODEL, text: "I encountered an error.", timestamp: new Date() }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAddToResearch = (
-      content: string, 
-      sources?: GroundingSource[], 
-      type: 'insight' | 'question' | 'user_note' = 'insight', 
-      actor: 'user' | 'model' = 'model'
-  ) => {
+  const handleAddToResearch = (content: string, sources?: GroundingSource[], type: 'insight' | 'question' | 'user_note' = 'insight', actor: 'user' | 'model' = 'model') => {
     let respondsToRefId: number | undefined = undefined;
     const match = content.match(/^\[Ref: #(\d+)\] >/);
-    if (match) {
-        respondsToRefId = parseInt(match[1]);
-    }
+    if (match) respondsToRefId = parseInt(match[1]);
 
     const newItem: ResearchItem = {
       id: uuidv4(),
@@ -248,32 +222,25 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
       sources: sources || [],
       respondsToRefId: respondsToRefId
     };
-    
     if (sources && sources.length > 0) {
         newItem.sourceTitle = sources[0].title;
         newItem.sourceUrl = sources[0].uri;
     }
-
     setResearchItems(prev => [newItem, ...prev]);
     setNextRefId(prev => prev + 1); 
   };
 
-  // Helper: Domain Parser for Short Name
   const getShortName = (url: string): string => {
       try {
           const hostname = new URL(url).hostname;
           return hostname.replace(/^www\./, '');
-      } catch (e) {
-          return "Link";
-      }
+      } catch (e) { return "Link"; }
   };
 
-  // Option Y Enhanced: Sequential Footnotes [fn.1]
   const extractUrls = (text: string): { cleanText: string, sources: GroundingSource[] } => {
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       const sources: GroundingSource[] = [];
       let counter = 1;
-      
       const cleanText = text.replace(urlRegex, (url) => {
           const shortName = getShortName(url);
           sources.push({ title: shortName, uri: url });
@@ -281,18 +248,14 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
           counter++;
           return marker; 
       });
-
       return { cleanText, sources };
   };
 
   const handleSaveUserNote = () => {
     if (!noteContent.trim()) return;
-
     let respondsToRefId: number | undefined = undefined;
     const match = noteContent.match(/^\[Ref: #(\d+)\] >/);
     if (match) respondsToRefId = parseInt(match[1]);
-
-    // Apply Footnote Extraction
     const { cleanText, sources } = extractUrls(noteContent);
 
     if (editingItem) {
@@ -320,29 +283,21 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
     setIsNoteModalOpen(false);
   };
 
-  const handleDeleteResearchItem = (id: string) => {
-    setResearchItems(prev => prev.filter(item => item.id !== id));
+  const handleApplyCalibration = () => {
+      setIsCalibrationOpen(false);
+      const ackMsg: Message = {
+          id: uuidv4(),
+          role: Role.MODEL,
+          text: `**Calibration Applied:** [Mode: ${guidance.inferenceLevel.toUpperCase()}]\n\nI have updated my operating parameters based on your custom instructions. What is your first research question?`,
+          timestamp: new Date()
+      };
+      setMessages(prev => [...prev, ackMsg]);
   };
 
-  const openNewNoteModal = () => {
-    setEditingItem(null);
-    setNoteTitle('');
-    setNoteContent('');
-    setNoteTier(currentTier);
-    setIsNoteModalOpen(true);
-  };
-
-  const openEditNoteModal = (item: ResearchItem) => {
-    setEditingItem(item);
-    setNoteTitle(item.title || '');
-    setNoteContent(item.content); 
-    setNoteTier(item.tier);
-    setIsNoteModalOpen(true);
-  };
-
-  const handleStartSynthesis = () => {
-      setIsSynthesisModalOpen(true);
-  };
+  const handleDeleteResearchItem = (id: string) => { setResearchItems(prev => prev.filter(item => item.id !== id)); };
+  const openNewNoteModal = () => { setEditingItem(null); setNoteTitle(''); setNoteContent(''); setNoteTier(currentTier); setIsNoteModalOpen(true); };
+  const openEditNoteModal = (item: ResearchItem) => { setEditingItem(item); setNoteTitle(item.title || ''); setNoteContent(item.content); setNoteTier(item.tier); setIsNoteModalOpen(true); };
+  const handleStartSynthesis = () => { setIsSynthesisModalOpen(true); };
 
   const executeSynthesis = async () => {
     if (!userIdentity) return;
@@ -366,45 +321,6 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
   };
 
-  const generateExportContent = (format: ExportFormat): string => {
-      if (format === 'json') {
-          const data: SessionData = {
-              version: '3.2',
-              timestamp: new Date().toISOString(),
-              sessionStartTime: sessionStartTime.toISOString(),
-              userIdentity: userIdentity!,
-              messages,
-              researchItems,
-              modelId: selectedModel,
-              nextRefId,
-              guidanceConfig: guidance
-          };
-          return JSON.stringify(data, null, 2);
-      }
-      
-      let content = `# Generative Lives Research Session\n`;
-      content += `**User:** ${userIdentity?.firstName} ${userIdentity?.lastName}\n`;
-      content += `**Date:** ${new Date().toLocaleString()}\n`;
-      content += `**Model:** ${selectedModel}\n`;
-      content += `**Inference Level:** ${guidance.inferenceLevel}\n\n`;
-
-      content += `## Research Board\n\n`;
-      researchItems.forEach(item => {
-          content += `### [Ref #${item.refId}] ${item.title || 'Untitled'}\n`;
-          content += `*${item.type.toUpperCase()} | ${item.tier}*\n`;
-          content += `${item.content}\n`;
-          if (item.sources && item.sources.length > 0) {
-              content += `\n**Sources:**\n`;
-              item.sources.forEach((s, i) => content += `${i+1}. [${s.title}](${s.uri})\n`);
-          } else if (item.sourceUrl) {
-              content += `\n**Source:** [${item.sourceTitle || 'Link'}](${item.sourceUrl})\n`;
-          }
-          content += `\n---\n\n`;
-      });
-
-      return content;
-  };
-
   const handleResetSession = () => {
     if (window.confirm("WARNING: This will delete ALL history. Proceed?")) {
         const keys = Object.keys(localStorage);
@@ -416,7 +332,7 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
 
   const handleSaveSession = () => {
       if (!userIdentity) return;
-      const data: SessionData = { version: '3.2', timestamp: new Date().toISOString(), sessionStartTime: sessionStartTime.toISOString(), userIdentity, messages, researchItems, modelId: selectedModel, nextRefId, guidanceConfig: guidance };
+      const data: SessionData = { version: '4.4', timestamp: new Date().toISOString(), sessionStartTime: sessionStartTime.toISOString(), userIdentity, messages, researchItems, modelId: selectedModel, nextRefId, guidanceConfig: guidance };
       const d = new Date(sessionStartTime);
       const filename = `GL_Session_${d.toISOString().split('T')[0]}.json`;
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -445,10 +361,39 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
               setNextRefId(json.nextRefId || (maxRefId + 1));
               if (json.modelId) setSelectedModel(json.modelId);
               if (json.guidanceConfig) setGuidance(json.guidanceConfig);
-              alert("Session restored (V3.2).");
+              alert("Session restored (V4.4).");
           } catch (error) { alert("Failed to load."); }
       };
       reader.readAsText(file); event.target.value = '';
+  };
+
+  const generateExportContent = (format: ExportFormat): string => {
+      if (format === 'json') {
+          return JSON.stringify({ researchItems, messages }, null, 2);
+      }
+      
+      let content = `# Generative Lives Research Export\n`;
+      content += `Generated for: ${userIdentity?.firstName} ${userIdentity?.lastName}\n`;
+      content += `Date: ${new Date().toLocaleString()}\n\n`;
+      
+      content += `## Research Items\n\n`;
+      
+      researchItems.forEach(item => {
+          const typeLabel = item.type === 'user_note' ? 'USER NOTE' : item.type === 'question' ? 'QUERY' : 'EVIDENCE';
+          content += `### [${typeLabel}] [ID: #${item.refId}] ${item.title || ''}\n`;
+          content += `**Tier:** ${item.tier}\n`;
+          if (item.respondsToRefId) content += `**In Response To:** #${item.respondsToRefId}\n`;
+          content += `\n${item.content}\n\n`;
+          
+          if (item.sources && item.sources.length > 0) {
+              content += `**Sources:**\n`;
+              item.sources.forEach((s, i) => content += `${i+1}. ${s.title}: ${s.uri}\n`);
+              content += `\n`;
+          }
+          content += `---\n\n`;
+      });
+      
+      return content;
   };
 
   const handleDownload = (format: ExportFormat) => {
@@ -457,16 +402,17 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
       const ext = format === 'markdown' ? 'md' : format;
       const blob = new Blob([content], { type: mime });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `export.${ext}`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      const a = document.createElement('a'); a.href = url; a.download = `export.${ext}`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
   
   const handleGitHubCopy = () => { navigator.clipboard.writeText(generateExportContent('markdown')).then(() => alert("Copied!")); };
 
   const updateInferenceLevel = (level: InferenceLevel) => {
       const map: Record<InferenceLevel, string> = {
-          'strict': "Report data only. No theories.",
-          'cautious': "Report data, then suggest obvious correlations.",
-          'bold': "Use data as a launchpad. Propose structural hypotheses."
+          'strict': "Report data only. No theories. No adjectives.",
+          'cautious': "Report data, then suggest obvious correlations. Avoid speculation.",
+          'moderate': "Balance data with logical connections. Highlight patterns but label them.",
+          'bold': "Use data as a launchpad. Propose structural hypotheses. Challenge assumptions aggressively."
       };
       setGuidance(prev => ({ ...prev, inferenceLevel: level, customInstructions: map[level] }));
   };
@@ -478,7 +424,7 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
                <div className="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-100 p-8 z-10 text-center">
                    <div className="w-16 h-16 bg-substack-orange rounded-full flex items-center justify-center text-white font-serif font-bold text-2xl mx-auto mb-6">GL</div>
                    <h1 className="font-serif text-2xl font-bold text-slate-900 mb-2">Generative Lives</h1>
-                   <p className="text-slate-500 text-sm mb-8">Socratic Research Assistant V3.2</p>
+                   <p className="text-slate-500 text-sm mb-8">Socratic Research Assistant V4.4</p>
                    <div className="space-y-4 text-left">
                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Enter your name to begin</label>
                        <input type="text" value={onboardingName} onChange={(e) => setOnboardingName(e.target.value)} className="w-full p-3 border border-slate-200 rounded-xl" onKeyDown={(e) => e.key === 'Enter' && handleOnboardingSubmit()} />
@@ -505,30 +451,19 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
             <div className="space-y-6">
                 <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Inference Spectrum</label>
-                    <div className="grid grid-cols-3 gap-2">
-                        {(['strict', 'cautious', 'bold'] as InferenceLevel[]).map(level => (
-                            <button 
-                                key={level}
-                                onClick={() => updateInferenceLevel(level)}
-                                className={`py-2 px-3 rounded-lg text-xs font-bold capitalize border ${guidance.inferenceLevel === level ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
-                            >
-                                {level}
-                            </button>
+                    <div className="grid grid-cols-4 gap-2">
+                        {(['strict', 'cautious', 'moderate', 'bold'] as InferenceLevel[]).map(level => (
+                            <button key={level} onClick={() => updateInferenceLevel(level)} className={`py-2 px-2 rounded-lg text-[10px] font-bold capitalize border ${guidance.inferenceLevel === level ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}>{level}</button>
                         ))}
                     </div>
                 </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Custom Instructions</label>
-                    <textarea 
-                        value={guidance.customInstructions}
-                        onChange={(e) => setGuidance(prev => ({...prev, customInstructions: e.target.value}))}
-                        className="w-full p-3 border border-slate-200 rounded-lg text-sm h-24"
-                    />
+                <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Custom Instructions (You can edit this text to refine the persona):</label><textarea value={guidance.customInstructions} onChange={(e) => setGuidance(prev => ({...prev, customInstructions: e.target.value}))} className="w-full p-3 border border-slate-200 rounded-lg text-sm h-24" /></div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Format</label><select value={guidance.formatPreference} onChange={(e) => setGuidance(prev => ({...prev, formatPreference: e.target.value}))} className="w-full p-2 border rounded"><option>Narrative with Footnotes</option><option>Bulleted Executive Summary</option></select></div>
+                    <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Depth</label><select value={guidance.depthPreference} onChange={(e) => setGuidance(prev => ({...prev, depthPreference: e.target.value}))} className="w-full p-2 border rounded"><option>Comprehensive</option><option>Concise</option></select></div>
                 </div>
             </div>
-            <div className="mt-6 text-right">
-              <button onClick={() => setIsCalibrationOpen(false)} className="px-6 py-2 bg-substack-orange text-white rounded-lg font-bold">Apply Settings</button>
-            </div>
+            <div className="mt-6 text-right"><button onClick={handleApplyCalibration} className="px-6 py-2 bg-substack-orange text-white rounded-lg font-bold">Apply Settings</button></div>
           </div>
         </div>
       )}
@@ -537,64 +472,27 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
       {isSettingsOpen && (
         <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-serif font-bold text-slate-800">Configuration</h3>
-              <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-            <div className="mb-6">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-                    Model Intelligence
-                </label>
-                <div className="space-y-3">
-                    <label className={`flex items-start p-3 border rounded-xl cursor-pointer ${selectedModel === 'gemini-2.5-flash' ? 'border-substack-orange bg-orange-50' : ''}`}>
-                        <input type="radio" name="model" checked={selectedModel === 'gemini-2.5-flash'} onChange={() => setSelectedModel('gemini-2.5-flash')} className="mt-1" />
-                        <div className="ml-3"><span className="block text-sm font-bold">Standard (Flash)</span><span className="text-xs text-slate-500">Fast & Efficient</span></div>
-                    </label>
-                    <label className={`flex items-start p-3 border rounded-xl cursor-pointer ${selectedModel === 'gemini-3-pro-preview' ? 'border-substack-orange bg-orange-50' : ''}`}>
-                        <input type="radio" name="model" checked={selectedModel === 'gemini-3-pro-preview'} onChange={() => setSelectedModel('gemini-3-pro-preview')} className="mt-1" />
-                        <div className="ml-3"><span className="block text-sm font-bold">Pro (Gemini 3)</span><span className="text-xs text-slate-500">Deep Reasoning</span></div>
-                    </label>
-                </div>
+            <h3 className="text-lg font-serif font-bold text-slate-800 mb-4">Configuration</h3>
+            <div className="space-y-3 mb-6">
+                <label className={`flex items-start p-3 border rounded-xl cursor-pointer ${selectedModel === 'gemini-2.5-flash' ? 'border-substack-orange bg-orange-50' : ''}`}><input type="radio" name="model" checked={selectedModel === 'gemini-2.5-flash'} onChange={() => setSelectedModel('gemini-2.5-flash')} className="mt-1" /><div className="ml-3"><span className="block text-sm font-bold">Standard (Flash)</span><span className="text-xs text-slate-500">Fast & Efficient</span></div></label>
+                <label className={`flex items-start p-3 border rounded-xl cursor-pointer ${selectedModel === 'gemini-3-pro-preview' ? 'border-substack-orange bg-orange-50' : ''}`}><input type="radio" name="model" checked={selectedModel === 'gemini-3-pro-preview'} onChange={() => setSelectedModel('gemini-3-pro-preview')} className="mt-1" /><div className="ml-3"><span className="block text-sm font-bold">Pro (Gemini 3)</span><span className="text-xs text-slate-500">Deep Reasoning</span></div></label>
             </div>
             <div className="text-right"><button onClick={() => setIsSettingsOpen(false)} className="px-4 py-2 bg-slate-900 text-white rounded-lg">Done</button></div>
           </div>
         </div>
       )}
 
-      {/* Note Modal (V3.0 Resizable) */}
+      {/* Note Modal */}
       {isNoteModalOpen && (
         <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center backdrop-blur-sm p-4">
            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-100 flex flex-col max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-serif font-bold text-slate-800 mb-4">{editingItem ? 'Edit User Note' : 'Add User Note'}</h3>
-              <div className="space-y-4 flex-1">
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Title</label>
-                      <input type="text" value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-substack-orange/20 focus:border-substack-orange outline-none" placeholder="Note Title" />
-                  </div>
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tier</label>
-                      <select value={noteTier} onChange={(e) => setNoteTier(e.target.value as ResearchTier)} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-substack-orange/20 focus:border-substack-orange outline-none bg-white">
-                          {Object.values(ResearchTier).map((tier) => (<option key={tier} value={tier}>{tier}</option>))}
-                      </select>
-                  </div>
-                  <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Content</label>
-                      <textarea 
-                        value={noteContent} 
-                        onChange={(e) => setNoteContent(e.target.value)} 
-                        className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-substack-orange/20 focus:border-substack-orange outline-none min-h-[200px] font-serif text-sm leading-relaxed resize-y" 
-                        placeholder="Write your analysis here (URLs will become footnotes [fn.X])..." 
-                      />
-                  </div>
+              <div className="space-y-4 flex-1 overflow-y-auto p-1">
+                  <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Title</label><input type="text" value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-substack-orange/20 focus:border-substack-orange outline-none" placeholder="Note Title" /></div>
+                  <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tier</label><select value={noteTier} onChange={(e) => setNoteTier(e.target.value as ResearchTier)} className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-substack-orange/20 focus:border-substack-orange outline-none bg-white">{Object.values(ResearchTier).map((tier) => (<option key={tier} value={tier}>{tier}</option>))}</select></div>
+                  <div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Content</label><textarea value={noteContent} onChange={(e) => setNoteContent(e.target.value)} className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-substack-orange/20 focus:border-substack-orange outline-none min-h-[200px] font-serif text-sm leading-relaxed resize-y" placeholder="Write your analysis here (URLs will become footnotes [fn.X])..." /></div>
               </div>
-              <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-100">
-                  <button onClick={() => setIsNoteModalOpen(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700 text-sm font-medium">Cancel</button>
-                  <button onClick={handleSaveUserNote} className="px-4 py-2 bg-substack-orange text-white rounded-lg text-sm font-medium">Save</button>
-              </div>
+              <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-100"><button onClick={() => setIsNoteModalOpen(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700 text-sm font-medium">Cancel</button><button onClick={handleSaveUserNote} className="px-4 py-2 bg-substack-orange text-white rounded-lg text-sm font-medium">Save</button></div>
            </div>
         </div>
       )}
@@ -614,46 +512,27 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
                           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Include Tiers:</label>
                           <div className="grid grid-cols-2 gap-2">
                               {Object.values(ResearchTier).map(tier => (
-                                  <label key={tier} className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer">
-                                      <input type="checkbox" checked={synthesisTiers.includes(tier)} onChange={(e) => { if (e.target.checked) setSynthesisTiers([...synthesisTiers, tier]); else setSynthesisTiers(synthesisTiers.filter(t => t !== tier)); }} className="rounded text-blue-600 focus:ring-blue-500" />
-                                      <span>{tier.split('/')[0]}</span>
-                                  </label>
+                                  <label key={tier} className="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer"><input type="checkbox" checked={synthesisTiers.includes(tier)} onChange={(e) => { if (e.target.checked) setSynthesisTiers([...synthesisTiers, tier]); else setSynthesisTiers(synthesisTiers.filter(t => t !== tier)); }} className="rounded text-blue-600 focus:ring-blue-500" /><span>{tier.split('/')[0]}</span></label>
                               ))}
                           </div>
                       </div>
                   )}
               </div>
-              <div className="flex justify-end gap-2">
-                  <button onClick={() => setIsSynthesisModalOpen(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700 text-sm font-medium">Cancel</button>
-                  <button onClick={executeSynthesis} className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium">Generate Synthesis</button>
-              </div>
+              <div className="flex justify-end gap-2"><button onClick={() => setIsSynthesisModalOpen(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700 text-sm font-medium">Cancel</button><button onClick={executeSynthesis} className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium">Generate Synthesis</button></div>
            </div>
         </div>
       )}
 
-      {/* Main Layout */}
       <main className="flex-1 flex flex-col transition-all duration-300" style={{ marginRight: isSidebarOpen ? 0 : 0 }}>
         <header className="h-16 border-b bg-white flex items-center justify-between px-6 shrink-0 z-10">
           <div className="flex items-center gap-3">
              <div className="w-8 h-8 bg-substack-orange rounded-full flex items-center justify-center text-white font-serif font-bold">GL</div>
-             <div>
-               <h1 className="font-serif font-bold text-lg text-slate-800">Generative Lives</h1>
-               <div className="flex items-center gap-2">
-                   <span className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">v3.2 • {userIdentity.firstName}</span>
-                   <button onClick={() => setIsCalibrationOpen(true)} className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-[9px] font-bold text-blue-600 uppercase tracking-wider transition-colors">
-                       Mode: {guidance.inferenceLevel}
-                   </button>
-               </div>
-             </div>
+             <div><h1 className="font-serif font-bold text-lg text-slate-800">Generative Lives</h1><div className="flex items-center gap-2"><span className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">v4.4 • {userIdentity.firstName}</span><button onClick={() => setIsCalibrationOpen(true)} className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-[9px] font-bold text-blue-600 uppercase tracking-wider transition-colors">Mode: {guidance.inferenceLevel}</button></div></div>
           </div>
           <div className="flex items-center gap-3">
              <button onClick={handleResetSession} className="text-slate-400 hover:text-red-600 text-xs font-medium">Reset</button>
              <button onClick={() => setIsSettingsOpen(true)} className="text-slate-400 hover:text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
-             <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
-                <button onClick={() => setUseSearch(!useSearch)} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${useSearch ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}>
-                  {useSearch ? <><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Search Active</> : 'Discussion'}
-                </button>
-             </div>
+             <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1"><button onClick={() => setUseSearch(!useSearch)} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${useSearch ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}>{useSearch ? <><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Search Active</> : 'Discussion'}</button></div>
              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-slate-400 hover:text-slate-600 ml-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 00-2 2" /></svg></button>
           </div>
         </header>
@@ -661,7 +540,7 @@ Please click the **'Calibrate Assistant'** button below to define my operating p
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
            <div className="max-w-3xl mx-auto">
               {messages.map(msg => (<MessageBubble key={msg.id} message={msg} onAddToResearch={handleAddToResearch} onCalibrate={() => setIsCalibrationOpen(true)} />))}
-              {isLoading && (<div className="flex justify-start mb-6"><div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-3"><span className="text-sm text-slate-500 font-medium animate-pulse">{useSearch ? "Searching..." : "Thinking..."}</span></div></div>)}
+              {isLoading && (<div className="flex justify-start mb-6"><div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-bl-none shadow-sm flex items-center gap-3"><div className="flex space-x-1"><div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div><div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div><div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div></div><span className="text-sm text-slate-500 font-medium animate-pulse">{useSearch ? "Searching..." : "Thinking..."}</span></div></div>)}
               <div ref={messagesEndRef} />
            </div>
         </div>

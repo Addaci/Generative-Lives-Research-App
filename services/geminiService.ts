@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { Message, Role, GroundingSource, ModelId, ResearchItem, SynthesisMode, ResearchTier } from "../types";
+import { Message, Role, GroundingSource, ModelId, ResearchItem, SynthesisMode, GuidanceConfig } from "../types";
 import { getSystemInstruction } from "../constants";
 
 const getClient = () => {
@@ -15,7 +16,8 @@ export const sendMessageToGemini = async (
   newMessage: string,
   useSearch: boolean,
   modelId: ModelId = 'gemini-2.5-flash',
-  userName: string
+  userName: string,
+  guidance?: GuidanceConfig
 ): Promise<{ text: string; sources: GroundingSource[] }> => {
   const ai = getClient();
   
@@ -29,8 +31,6 @@ export const sendMessageToGemini = async (
     parts: [{ text: newMessage }],
   });
 
-  // Strict Tool Logic: If useSearch is false, tools array is EMPTY.
-  // This physically prevents the model from searching.
   const tools = useSearch ? [{ googleSearch: {} }] : [];
 
   try {
@@ -38,25 +38,58 @@ export const sendMessageToGemini = async (
       model: modelId,
       contents: contents,
       config: {
-        systemInstruction: getSystemInstruction(userName, useSearch),
+        systemInstruction: getSystemInstruction(userName, useSearch, guidance),
         tools: tools,
         temperature: 0.7,
       },
     });
 
-    const text = response.text || "I couldn't generate a response.";
+    let text = response.text || "I couldn't generate a response.";
     const sources: GroundingSource[] = [];
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     
-    if (chunks) {
-      chunks.forEach((chunk: any) => {
-        if (chunk.web) {
-          sources.push({
-            title: chunk.web.title || "Web Source",
-            uri: chunk.web.uri,
+    // Robust Parsing: Extract from [SOURCE_START] block (Primary)
+    const sourceBlockRegex = /\[SOURCE_START\]([\s\S]*?)\[SOURCE_END\]/i;
+    const match = text.match(sourceBlockRegex);
+
+    if (match) {
+      const blockContent = match[1];
+      const lines = blockContent.trim().split('\n');
+      
+      if (lines.length > 0) {
+          lines.forEach(line => {
+              const urlMatch = line.match(/URL:\s*([^\s|]+)/);
+              const titleMatch = line.match(/Title:\s*(.+)$/);
+              
+              if (urlMatch && urlMatch[1]) {
+                  const rawUrl = urlMatch[1].trim();
+                  // V4.4: Allow Vertex, only filter NONE
+                  if (rawUrl !== 'NONE') {
+                      let title = titleMatch ? titleMatch[1].trim() : "Source";
+                      sources.push({
+                          title: title,
+                          uri: rawUrl
+                      });
+                  }
+              }
+          });
+      }
+      // Remove block from visible text
+      text = text.replace(sourceBlockRegex, '').trim();
+    }
+
+    // Fallback: If no sources parsed from text, try API metadata
+    if (sources.length === 0) {
+        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        if (chunks) {
+          chunks.forEach((chunk: any) => {
+            if (chunk.web && chunk.web.uri) {
+              sources.push({
+                title: chunk.web.title || "Web Source",
+                uri: chunk.web.uri,
+              });
+            }
           });
         }
-      });
     }
 
     return { text, sources };
@@ -88,11 +121,7 @@ Content: ${i.content}`;
         prompt = `
         You are analyzing the investigative logic of ${userName}.
         Below is a list of Queries they asked, indexed by ID.
-        
-        Task:
-        1. Summarize the arc of their inquiry. Reference specific queries using [Ref: #X].
-        2. Identify logic gaps.
-        
+        Task: Summarize the arc of their inquiry. Reference specific queries using [Ref: #X].
         Queries:
         ${contentBlob}
         `;
@@ -101,16 +130,11 @@ Content: ${i.content}`;
         You are acting as a ghostwriter for ${userName}.
         Below are their raw notes, indexed by ID.
         Synthesize these into a coherent narrative.
-        
-        Rules:
-        1. Use ONLY the content in these notes.
-        2. Reference the specific note ID for every point made using [Ref: #X].
-        
+        Rules: Use ONLY the content in these notes. Reference the specific note ID for every point made using [Ref: #X].
         User Notes:
         ${contentBlob}
         `;
     } else {
-        // Assistant Note / Evidence Mode
         prompt = `
         You are an editor for "Generative Lives".
         Synthesize the following Operational Evidence into a structural analysis.
@@ -118,7 +142,7 @@ Content: ${i.content}`;
         STRICT ANTI-HALLUCINATION PROTOCOLS:
         1. Use ONLY the content provided in the Research Findings below. Do NOT introduce external evidence.
         2. Every claim you make MUST be backed by a specific Reference ID. Append [Ref: #X] to the end of the sentence.
-        3. If a note contains a URL or Source, you MUST include a markdown link in the text, ideally formatted as "Title, Date" if the date is available in the note.
+        3. If a note contains a URL or Source, you MUST include a markdown link in the text, ideally formatted as "Title, Date".
         
         Research Findings:
         ${contentBlob}

@@ -21,7 +21,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAddToRe
             : 'bg-white border border-slate-100 text-slate-800 rounded-bl-none'
           }`}
       >
-        {/* User Action: Save Question */}
         {isUser && (
            <button 
              onClick={() => onAddToResearch(message.text, undefined, 'question', 'user')}
@@ -38,7 +37,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAddToRe
           <ReactMarkdown>{message.text}</ReactMarkdown>
         </div>
 
-        {/* V3.4: Calibration Action Button */}
         {message.action === 'calibrate' && onCalibrate && (
             <div className="mt-4">
                 <button 
@@ -54,32 +52,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAddToRe
             </div>
         )}
 
-        {/* Footer Area for Model Messages */}
         {!isUser && (
             <div className="mt-5 pt-4 border-t border-slate-100 flex flex-col gap-4">
-                {/* Sources List */}
                 {message.sources && message.sources.length > 0 && (
                     <div>
                         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Evidence / Sources</h4>
                         <div className="flex flex-wrap gap-2">
                         {message.sources.map((source, idx) => (
-                            <div key={idx} className="group flex items-center gap-2 bg-slate-50 border border-slate-200 rounded px-2 py-1 max-w-full">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">[fn.{idx + 1}]</span>
-                            <a 
-                                href={source.uri}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-blue-600 hover:underline truncate max-w-[180px]"
-                            >
-                                {source.title}
-                            </a>
+                            <div key={idx} className="group flex items-center bg-slate-50 border border-slate-200 rounded-full max-w-full overflow-hidden hover:border-blue-300 transition-colors">
+                                <div className="px-3 py-1 border-r border-slate-200 bg-slate-100 text-[10px] font-bold text-slate-500">
+                                    [fn.{idx + 1}]
+                                </div>
+                                <a 
+                                    href={source.uri}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1 text-xs text-blue-600 hover:bg-blue-50 truncate max-w-[200px]"
+                                    title={source.uri}
+                                >
+                                    {source.title}
+                                </a>
+                                <a
+                                    href={`https://www.google.com/search?q=${encodeURIComponent(source.title)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2 py-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 border-l border-slate-200"
+                                    title="Search this title on Google (Safety Net)"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </a>
                             </div>
                         ))}
                         </div>
                     </div>
                 )}
 
-                {/* Main Capture Action */}
                 <div className="flex justify-end">
                     <button
                         onClick={() => onAddToResearch(message.text, message.sources, 'insight', 'model')}
