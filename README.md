@@ -18,3 +18,5 @@ View your app in AI Studio: https://ai.studio/apps/drive/1TfNyRIrEkRsJx1C7vg0MLS
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+Access the User Manual and Beta Tester Protocol here: https://github.com/Addaci/Generative-Lives-Research-App/blob/main/GenerativeLives_RA_User_Manual_For_Beta_Testers_V1.3.pdf
